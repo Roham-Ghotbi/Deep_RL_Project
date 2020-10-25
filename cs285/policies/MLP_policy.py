@@ -43,19 +43,20 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
                                            n_layers=self.n_layers,
                                            size=self.size,
                                            activation='relu',
-                                           output_activation='softmax')
+                                           output_activation='identity')
             self.logits_na.to(ptu.device)
             self.mean_net = None
             self.logstd = None
             self.optimizer = optim.Adam(self.logits_na.parameters(),
                                         self.learning_rate)
+            self.loss = torch.nn.CrossEntropyLoss()
         else:
             self.logits_na = None
             self.mean_net = ptu.build_mlp(input_size=self.ob_dim,
                                       output_size=self.ac_dim,
                                       n_layers=self.n_layers, size=self.size,
-                                      activation='tanh',
-                                      output_activation='identity')
+                                      activation='relu',
+                                      output_activation='tanh')
             self.cov_factor = torch.normal(-1.5, 0.05, size=(self.ac_dim,self.ac_dim), dtype=torch.float32, device=ptu.device)
             self.logstd = torch.zeros(self.ac_dim, dtype=torch.float32, device=ptu.device)
             for i in range(self.ac_dim):
@@ -65,8 +66,12 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
             self.cov_factor = nn.Parameter(self.cov_factor)
             self.mean_net.to(ptu.device)
             self.logstd.to(ptu.device)
+            # self.optimizer = optim.Adam(
+            #     itertools.chain([self.cov_factor],[self.logstd], self.mean_net.parameters()),
+            #     self.learning_rate
+            # )
             self.optimizer = optim.Adam(
-                itertools.chain([self.cov_factor],[self.logstd], self.mean_net.parameters()),
+                self.mean_net.parameters(),
                 self.learning_rate
             )
 
@@ -101,12 +106,35 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
             observation = obs
         else:
             observation = obs[None]
-
-        return self.forward(observation).sample().cpu()
+        if isinstance(observation, np.ndarray):
+            observation = ptu.from_numpy(obs)
+        actions = self.forward(observation)
+        if self.discrete:
+            # actions = c.sample()
+            action = actions.argmax()
+        else:
+            # action = c.sample()
+            action = actions
+        # c = torch.distributions.Categorical(logits=state)
+        # action = c.sample()
+        # action = state.argmax()
+        return action.detach().numpy()
 
     # update/train this policy
-    def update(self, observations, actions, **kwargs):
-        raise NotImplementedError
+    def update(self, ob_no_a, ob_no_b, ac_na_b, critic, **kwargs):
+        ac_na_a = self.forward(ob_no_a).reshape((-1,self.ac_dim))
+        ac_na_b = ac_na_b.reshape((-1,self.ac_dim))
+        input = torch.cat((ob_no_a,ob_no_b, ac_na_a , ac_na_b), dim = -1)
+        loss = -torch.mean(critic.q_net_target(input))
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        train_log = {
+            'Actor Loss': ptu.to_numpy(loss)
+        }
+
+        return train_log
 
     # This function defines the forward pass of the network.
     # You can return anything you want, but you should be able to differentiate
@@ -116,13 +144,14 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
     def forward(self, observation: torch.FloatTensor):
         # TODO: get this from hw1 or hw2
         if self.discrete:
-            state = self.logits_na(torch.FloatTensor(observation).to(ptu.device))
-            c = torch.distributions.Categorical(state)
-            return c
+            state = self.logits_na(observation)
+            # c = torch.distributions.Categorical(logits=state)
+            return state
         else:
-            c = torch.distributions.LowRankMultivariateNormal(self.mean_net(torch.FloatTensor(observation).to(ptu.device)).mul(torch.from_numpy(self.env.action_space.high).to(ptu.device)),
-                                                              10 ** self.cov_factor,
-                                                              10 ** self.logstd)
+            # c = torch.distributions.LowRankMultivariateNormal(self.mean_net(ptu.from_numpy(observation)).mul(ptu.from_numpy(self.env.action_space.high)),
+            #                                                   10 ** self.cov_factor,
+            #                                                   10 ** self.logstd)
+            c = self.mean_net(observation)
             return c
 
 
@@ -148,10 +177,6 @@ class MLPPolicyAC(MLPPolicy):
         # HINT2: you will want to use the `log_prob` method on the distribution returned
             # by the `forward` method
         # HINT3: don't forget that `optimizer.step()` MINIMIZES a loss
-        # if self.discrete:
-        #     c = torch.distributions.Categorical(self.logits_na(observations))
-        # else:
-        #     c = torch.distributions.Normal(self.mean_net(torch.FloatTensor(observations)).mul(torch.from_numpy(self.env.action_space.high)),10**self.logstd)
         c = self.forward(observations.cpu())
 
         # log_p = c.log_prob(actions).reshape((-1, advantages.shape[-1]))

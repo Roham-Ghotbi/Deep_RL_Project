@@ -81,7 +81,7 @@ def sample_trajectory(env, policy, max_path_length, render=False, render_mode=('
             ac = policy.get_action(ob).data.numpy() # HINT: query the policy's get_action function
         except:
             ac = policy.get_action(ob)  # HINT: query the policy's get_action function
-        ac = ac[0]
+        # ac = ac[0]
 
         acs.append(ac)
 

@@ -99,7 +99,7 @@ class ACAgent(BaseAgent):
     def add_to_replay_buffer(self, paths):
         self.replay_buffer.add_rollouts(paths)
 
-    def sample(self, batch_size, random=False):
+    def sample(self, batch_size, random=True):
         if not random:
             return self.replay_buffer.sample_recent_data(batch_size)
         else:

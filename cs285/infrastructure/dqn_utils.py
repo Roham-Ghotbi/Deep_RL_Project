@@ -73,12 +73,29 @@ def get_env_kwargs(env_name):
             'env_wrappers': lunar_empty_wrapper
         }
         kwargs['exploration_schedule'] = lander_exploration_schedule(kwargs['num_timesteps'])
-
     else:
-        raise NotImplementedError
+        def lunar_empty_wrapper(env):
+            return env
+        kwargs = {
+            'replay_buffer_size': 50000,
+            'learning_starts': 1000,
+            'learning_freq': 1,
+            'frame_history_len': 1,
+            'target_update_freq': 1000,
+            'lander': True,
+            'num_timesteps': 100000
+        }
+        kwargs['exploration_schedule'] = lander_exploration_schedule(kwargs['num_timesteps'])
 
     return kwargs
 
+def lander_exploration_schedule(num_timesteps):
+    return PiecewiseSchedule(
+        [
+            (0, 1),
+            (num_timesteps * 0.5, 0.01),
+        ], outside_value=0.01
+    )
 
 def create_lander_q_network(ob_dim, num_actions):
     return nn.Sequential(
@@ -88,6 +105,7 @@ def create_lander_q_network(ob_dim, num_actions):
         nn.ReLU(),
         nn.Linear(64, num_actions),
     )
+
 
 class Ipdb(nn.Module):
     def __init__(self):
@@ -117,6 +135,7 @@ def create_atari_q_network(ob_dim, num_actions):
         nn.ReLU(),
         nn.Linear(512, num_actions),
     )
+
 
 def atari_exploration_schedule(num_timesteps):
     return PiecewiseSchedule(
@@ -162,20 +181,28 @@ def lander_optimizer():
     return OptimizerSpec(
         constructor=optim.Adam,
         optim_kwargs=dict(
+            lr=5e-3,
+        ),
+        learning_rate_schedule=lambda epoch: 1e-3,  # keep init learning rate
+    )
+
+def InvPendulum_optimizer():
+    return OptimizerSpec(
+        constructor=optim.Adam,
+        optim_kwargs=dict(
             lr=1,
         ),
         learning_rate_schedule=lambda epoch: 1e-3,  # keep init learning rate
     )
 
 
-def lander_exploration_schedule(num_timesteps):
+def InvPendulum_exploration_schedule(num_timesteps):
     return PiecewiseSchedule(
         [
             (0, 1),
             (num_timesteps * 0.1, 0.02),
         ], outside_value=0.02
     )
-
 
 def sample_n_unique(sampling_f, n):
     """Helper function. Given a function `sampling_f` that returns
@@ -466,7 +493,7 @@ class MemoryOptimizedReplayBuffer(object):
             img_h, img_w = self.obs.shape[1], self.obs.shape[2]
             return self.obs[start_idx:end_idx].transpose(1, 2, 0, 3).reshape(img_h, img_w, -1)
 
-    def store_frame(self, frame):
+    def store_frame(self, frame, ac_dim=[]):
         """Store a single frame in the buffer at the next available index, overwriting
         old frames if necessary.
 
@@ -481,9 +508,13 @@ class MemoryOptimizedReplayBuffer(object):
         idx: int
             Index at which the frame is stored. To be used for `store_effect` later.
         """
+        if ac_dim == 1:
+            ac_dim = []
+        else:
+            ac_dim = [ac_dim]
         if self.obs is None:
-            self.obs      = np.empty([self.size] + list(frame.shape), dtype=np.float32 if self.lander else np.uint8)
-            self.action   = np.empty([self.size],                     dtype=np.int32)
+            self.obs      = np.empty([self.size] + list(frame.shape), dtype=np.float32 if self.lander else np.float32)
+            self.action   = np.empty([self.size] + list(ac_dim)     , dtype=np.float32)
             self.reward   = np.empty([self.size],                     dtype=np.float32)
             self.done     = np.empty([self.size],                     dtype=np.bool)
         self.obs[self.next_idx] = frame
