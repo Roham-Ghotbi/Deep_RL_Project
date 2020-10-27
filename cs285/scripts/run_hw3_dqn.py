@@ -73,7 +73,7 @@ def main():
 
     parser.add_argument('--n_layers', '-l', type=int, default=2)
     parser.add_argument('--size', '-s', type=int, default=64)
-    parser.add_argument('--discount', type=float, default=0.99)
+    parser.add_argument('--discount', type=float, default=1.00)
     parser.add_argument('--n_iter', '-n', type=int, default=100)
 
     parser.add_argument('--save_params', action='store_true')

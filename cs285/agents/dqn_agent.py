@@ -118,7 +118,6 @@ class DQNAgent(object):
                 self.critic.update_target_network()
 
 
-
             ob_no_a, ac_na_a, _, _, _ = batch_a
             ob_no_a = ptu.from_numpy(ob_no_a)
             ac_na_a = ptu.from_numpy(ac_na_a)
