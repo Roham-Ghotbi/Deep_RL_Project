@@ -21,18 +21,19 @@ class DQNAgent(object):
         self.learning_freq = agent_params['learning_freq']
         self.target_update_freq = agent_params['target_update_freq']
 
+
         self.replay_buffer_idx = None
         self.exploration = agent_params['exploration_schedule']
 
         self.critic = DQNCritic(agent_params)
-        # self.actor = ArgMaxPolicy(self.critic)
+
         self.actor = MLPPolicy(agent_params['ac_dim'],
-                               agent_params['ob_dim'],
-                               agent_params['n_layers'],
-                               agent_params['size'],
-                               agent_params['discrete'],
-                               agent_params['learning_rate'],
-                               env)
+                                   agent_params['ob_dim'],
+                                   agent_params['n_layers'],
+                                   agent_params['size'],
+                                   agent_params['discrete'],
+                                   agent_params['learning_rate'],
+                                   env)
         lander = agent_params['env_name'].startswith('LunarLander')
         self.discrete = agent_params['discrete']
         self.replay_buffer = MemoryOptimizedReplayBuffer(
@@ -75,8 +76,10 @@ class DQNAgent(object):
                 # to deal with the partial observability of the environment. Get the most recent 
                 # `frame_history_len` observations using functionality from the replay buffer,
                 # and then use those observations as input to your actor. 
-            obv = ptu.from_numpy(self.replay_buffer.encode_recent_observation())
-            action = self.actor.get_action(obv).reshape((self.actor.ac_dim))
+            # obv = ptu.from_numpy(self.replay_buffer.encode_recent_observation())
+            action = self.actor.get_action(ptu.from_numpy(obv)).reshape((self.actor.ac_dim) if not self.discrete else -1)
+            if self.discrete:
+                action = action.item()
         
         # TODO take a step in the environment using the action from the policy
         # HINT1: remember that self.last_obs must always point to the newest/latest observation
@@ -130,5 +133,7 @@ class DQNAgent(object):
             self.num_param_updates += 1
             log = {'Critic Loss': log_c['Critic Loss'],
                    'Actor Loss': log_a['Actor Loss']}
-        self.t += 1
         return log
+
+    def update_t(self):
+        self.t += 1

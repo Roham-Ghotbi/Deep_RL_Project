@@ -47,16 +47,16 @@ def main():
     parser.add_argument(
         '--env_name',
         default='MsPacman-v0',
-        choices=('PongNoFrameskip-v4', 'LunarLander-v3','LunarLander-v2', 'MsPacman-v0','InvertedPendulum-v2',
-                 'LunarLanderContinuous-v2','Pendulum-v0')
+        # choices=('PongNoFrameskip-v4', 'LunarLander-v3','LunarLander-v2', 'MsPacman-v0','InvertedPendulum-v2',
+        #          'LunarLanderContinuous-v2','Pendulum-v0')
     )
 
     parser.add_argument('--ep_len', type=int, default=1000)
     parser.add_argument('--exp_name', type=str, default='todo')
 
-    parser.add_argument('--eval_batch_size', type=int, default=10000)
+    parser.add_argument('--eval_batch_size', type=int, default=4000)
 
-    parser.add_argument('--batch_size', '-b', type=int, default=32)  # steps collected per train iteration
+    parser.add_argument('--batch_size', '-b', type=int, default=16)  # steps collected per train iteration
 
     parser.add_argument('--num_agent_train_steps_per_iter', type=int, default=3)
     parser.add_argument('--num_critic_updates_per_agent_update', type=int, default=1)
@@ -73,12 +73,12 @@ def main():
 
     parser.add_argument('--n_layers', '-l', type=int, default=2)
     parser.add_argument('--size', '-s', type=int, default=64)
-    parser.add_argument('--discount', type=float, default=1.00)
+    parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--n_iter', '-n', type=int, default=100)
 
     parser.add_argument('--save_params', action='store_true')
     
-    parser.add_argument('--learning_rate','-lr', type=float, default=1e-3)
+    parser.add_argument('--learning_rate','-lr', type=float, default=1)
     args = parser.parse_args()
 
     # convert to dictionary

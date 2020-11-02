@@ -61,16 +61,14 @@ def get_env_kwargs(env_name):
             'optimizer_spec': lander_optimizer(),
             'q_func': create_lander_q_network,
             'replay_buffer_size': 50000,
-            'batch_size': 32,
             'gamma': 1.00,
             'learning_starts': 1000,
-            'learning_freq': 1,
+            'learning_freq': 2,
             'frame_history_len': 1,
-            'target_update_freq': 3000,
+            'target_update_freq': 1000,
             'grad_norm_clipping': 10,
             'lander': True,
-            'num_timesteps': 500000,
-            'env_wrappers': lunar_empty_wrapper
+            'num_timesteps': 500000
         }
         kwargs['exploration_schedule'] = lander_exploration_schedule(kwargs['num_timesteps'])
     else:
@@ -79,11 +77,12 @@ def get_env_kwargs(env_name):
         kwargs = {
             'replay_buffer_size': 50000,
             'learning_starts': 1000,
-            'learning_freq': 1,
+            'learning_freq': 2,
             'frame_history_len': 1,
             'target_update_freq': 1000,
+            'grad_norm_clipping': 10,
             'lander': True,
-            'num_timesteps': 100000
+            'num_timesteps': 200000
         }
         kwargs['exploration_schedule'] = lander_exploration_schedule(kwargs['num_timesteps'])
 
@@ -93,7 +92,7 @@ def lander_exploration_schedule(num_timesteps):
     return PiecewiseSchedule(
         [
             (0, 1),
-            (num_timesteps * 0.5, 0.01),
+            (num_timesteps * 0.25, 0.01),
         ], outside_value=0.01
     )
 
@@ -451,7 +450,9 @@ class MemoryOptimizedReplayBuffer(object):
             Array of shape (batch_size,) and dtype np.float32
         """
         assert self.can_sample(batch_size)
-        idxes = sample_n_unique(lambda: random.randint(0, self.num_in_buffer - 2), batch_size)
+        # idxes = sample_n_unique(lambda: random.randint(0, self.num_in_buffer - 2), batch_size)
+        idxes = random.sample(range(0, self.num_in_buffer - 1), batch_size)
+        idxes = idxes[0:batch_size]
         return self._encode_sample(idxes)
 
     def encode_recent_observation(self):

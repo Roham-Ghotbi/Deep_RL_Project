@@ -158,8 +158,8 @@ class RL_Trainer(object):
 
 
             # train agent (using sampled data from replay buffer)
-            if itr % print_period == 0:
-                print("\nTraining agent...")
+            # if itr % print_period == 0:
+            #     print("\nTraining agent...")
             all_logs = self.train_agent()
 
             # log/save
@@ -217,6 +217,7 @@ class RL_Trainer(object):
             # HINT: keep the agent's training log for debugging
             train_log = self.agent.train(batch_a, batch_b)
             all_logs.append(train_log)
+        self.agent.update_t()
         return all_logs
 
     ####################################
@@ -273,11 +274,11 @@ class RL_Trainer(object):
             eval_video_paths = utils.sample_n_trajectories(self.env, eval_policy, MAX_NVIDEO, MAX_VIDEO_LEN, True)
 
             #save train/eval videos
-            print('\nSaving train rollouts as videos...')
+            # print('\nSaving train rollouts as videos...')
             # self.logger.log_paths_as_videos(train_video_paths, itr, fps=self.fps, max_videos_to_save=MAX_NVIDEO,
             #                                 video_title='train_rollouts')
-            self.logger.log_paths_as_videos(eval_video_paths, itr, fps=self.fps,max_videos_to_save=MAX_NVIDEO,
-                                             video_title='eval_rollouts')
+            # self.logger.log_paths_as_videos(eval_video_paths, itr, fps=self.fps,max_videos_to_save=MAX_NVIDEO,
+            #                                  video_title='eval_rollouts')
 
         #######################
 
