@@ -274,11 +274,11 @@ class RL_Trainer(object):
             eval_video_paths = utils.sample_n_trajectories(self.env, eval_policy, MAX_NVIDEO, MAX_VIDEO_LEN, True)
 
             #save train/eval videos
-            # print('\nSaving train rollouts as videos...')
+            print('\nSaving train rollouts as videos...')
             # self.logger.log_paths_as_videos(train_video_paths, itr, fps=self.fps, max_videos_to_save=MAX_NVIDEO,
             #                                 video_title='train_rollouts')
-            # self.logger.log_paths_as_videos(eval_video_paths, itr, fps=self.fps,max_videos_to_save=MAX_NVIDEO,
-            #                                  video_title='eval_rollouts')
+            self.logger.log_paths_as_videos(eval_video_paths, itr, fps=self.fps,max_videos_to_save=MAX_NVIDEO,
+                                             video_title='eval_rollouts')
 
         #######################
 
