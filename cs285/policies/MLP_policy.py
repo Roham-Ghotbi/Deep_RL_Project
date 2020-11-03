@@ -138,15 +138,16 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
 
     # update/train this policy
     def update(self, ob_no_a, ob_no_b, ac_na_b, critic, **kwargs):
-        ac_na_b = ac_na_b.reshape((-1,self.ac_dim))
         if self.discrete:
+            ac_na_b = ac_na_b[:,0].reshape((-1,1))
             ac_dist = self.forward(ob_no_a)
             ac_na_a = ac_dist.sample().to(dtype=torch.float32).reshape((-1,1))
-            state = torch.cat((ob_no_a, ob_no_a, ac_na_a), dim=-1)
+            state = torch.cat((ob_no_a, ob_no_b, ac_na_b), dim=-1)
             diffQs = critic.q_net_target(state)
             _, target = diffQs.max(dim=1)
             loss = self.loss(ac_dist.logits, target.detach())
         else:
+            ac_na_b = ac_na_b.reshape((-1, self.ac_dim))
             ac_na_a = self.forward(ob_no_a).to(dtype=torch.float32).reshape(ac_na_b.shape)
             state = torch.cat((ob_no_a, ob_no_b, ac_na_a , ac_na_b), dim = -1)
             loss = critic.q_net_target(state)
