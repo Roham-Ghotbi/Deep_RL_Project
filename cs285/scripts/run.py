@@ -3,11 +3,11 @@ import time, glob
 import scipy.io as sio
 
 from cs285.infrastructure.rl_trainer import RL_Trainer
-from cs285.agents.dqn_agent import DQNAgent
+from cs285.agents.diffq_agent import DiffQAgent
 from cs285.infrastructure.dqn_utils import get_env_kwargs
 
 
-class Q_Trainer(object):
+class diffQ_Trainer(object):
 
     def __init__(self, params):
         self.params = params
@@ -23,13 +23,11 @@ class Q_Trainer(object):
 
         self.agent_params = {**train_args, **env_args, **params}
 
-        self.params['agent_class'] = DQNAgent
+        self.params['agent_class'] = DiffQAgent
         self.agent_params['gamma'] = params['discount']
         self.params['agent_params'] = self.agent_params
         self.params['train_batch_size'] = params['batch_size']
 
-        # self.agent_params['optimizer_spec'][1]['lr'] = 0.25 #params['learning_rate']
-        
         self.rl_trainer = RL_Trainer(self.params)
 
     def run_training_loop(self):
@@ -60,7 +58,7 @@ def main():
 
     parser.add_argument('--num_agent_train_steps_per_iter', type=int, default=3)
     parser.add_argument('--num_critic_updates_per_agent_update', type=int, default=1)
-    parser.add_argument('--double_q', action='store_true')
+    parser.add_argument('--double_q', action='store_true', default=False)
 
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--no_gpu', '-ngpu', action='store_true')
@@ -68,7 +66,7 @@ def main():
     parser.add_argument('--scalar_log_freq', type=int, default=int(1000))
     parser.add_argument('--video_log_freq', type=int, default=10000)
 
-    parser.add_argument('--observation_noise_multiple', type=float, default=0.)
+    parser.add_argument('--observation_noise_multiple', type=float, default=0.15)
     parser.add_argument('--action_noise_multiple', type=float, default=0.)
 
     parser.add_argument('--n_layers', '-l', type=int, default=2)
@@ -77,6 +75,7 @@ def main():
     parser.add_argument('--n_iter', '-n', type=int, default=100)
 
     parser.add_argument('--save_params', action='store_true')
+    parser.add_argument('--save_vid_rollout', action='store_true', default=False)
     
     parser.add_argument('--learning_rate','-lr', type=float, default=1)
     args = parser.parse_args()
@@ -100,7 +99,7 @@ def main():
 
     print("\n\n\nLOGGING TO: ", logdir, "\n\n\n")
 
-    trainer = Q_Trainer(params)
+    trainer = diffQ_Trainer(params)
     trainer.run_training_loop()
     # t = (glob.glob('*.mat')).__len__()
     # sio.savemat('%s.mat'%(params['exp_name']), {'avg_eval_ret': trainer.rl_trainer.avg_eval_ret, 'std_eval_ret': trainer.rl_trainer.std_eval_ret})

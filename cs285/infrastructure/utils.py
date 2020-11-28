@@ -55,16 +55,11 @@ def mean_squared_error(a, b):
 ############################################
 
 def sample_trajectory(env, policy, max_path_length, render=False, render_mode=('rgb_array')):
-    # TODO: get this from hw1 or hw2
-    # initialize env for the beginning of a new rollout
-    ob = env.reset() # HINT: should be the output of resetting the env
+    ob = env.reset()
 
-    # init vars
     obs, acs, rewards, next_obs, terminals, image_obs = [], [], [], [], [], []
     steps = 0
     while True:
-
-        # render image of the simulated env
         if render:
             if 'rgb_array' in render_mode:
                 if hasattr(env, 'sim'):
@@ -75,27 +70,21 @@ def sample_trajectory(env, policy, max_path_length, render=False, render_mode=('
                 env.render(mode=render_mode)
                 time.sleep(env.model.opt.timestep)
 
-        # use the most recent ob to decide what to do
         obs.append(ob)
         try:
-            ac = policy.get_action(ob).data.numpy() # HINT: query the policy's get_action function
+            ac = policy.get_action(ob).data.numpy()
         except:
-            ac = policy.get_action(ob)  # HINT: query the policy's get_action function
-        # ac = ac[0]
+            ac = policy.get_action(ob)
 
         acs.append(ac)
 
-        # take that action and record results
         ob, rew, done, _ = env.step(ac)
 
-        # record result of taking that action
         steps += 1
         next_obs.append(ob)
         rewards.append(rew)
 
-        # TODO end the rollout if the rollout ended
-        # HINT: rollout can end due to done, or due to max_path_length
-        rollout_done = 1*((done == True) or (steps == max_path_length))   # HINT: this is either 0 or 1
+        rollout_done = 1*((done == True) or (steps == max_path_length))
         terminals.append(rollout_done)
 
         if rollout_done:
@@ -142,10 +131,10 @@ def Path(obs, image_obs, acs, rewards, next_obs, terminals):
     """
     if image_obs != []:
         image_obs = np.stack(image_obs, axis=0)
-    return {"observation" : np.array(obs, dtype=np.float32),
-            "image_obs" : np.array(image_obs, dtype=np.uint8),
-            "reward" : np.array(rewards, dtype=np.float32),
-            "action" : np.array(acs, dtype=np.float32),
+    return {"observation": np.array(obs, dtype=np.float32),
+            "image_obs": np.array(image_obs, dtype=np.uint8),
+            "reward": np.array(rewards, dtype=np.float32),
+            "action": np.array(acs, dtype=np.float32),
             "next_observation": np.array(next_obs, dtype=np.float32),
             "terminal": np.array(terminals, dtype=np.float32)}
 

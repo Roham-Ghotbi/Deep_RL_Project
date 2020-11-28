@@ -1,5 +1,4 @@
-"""This file includes a collection of utility functions that are useful for
-implementing DQN."""
+
 import random
 from collections import namedtuple
 
@@ -37,63 +36,51 @@ def register_custom_envs():
 
 
 def get_env_kwargs(env_name):
-    if env_name in ['MsPacman-v0', 'PongNoFrameskip-v4']:
-        kwargs = {
-            'learning_starts': 50000,
-            'target_update_freq': 10000,
-            'replay_buffer_size': int(1e6),
-            'num_timesteps': int(2e8),
-            'q_func': create_atari_q_network,
-            'learning_freq': 4,
-            'grad_norm_clipping': 10,
-            'input_shape': (84, 84, 4),
-            'env_wrappers': wrap_deepmind,
-            'frame_history_len': 4,
-            'gamma': 0.99,
-        }
-        kwargs['optimizer_spec'] = atari_optimizer(kwargs['num_timesteps'])
-        kwargs['exploration_schedule'] = atari_exploration_schedule(kwargs['num_timesteps'])
-
-    elif env_name == 'LunarLander-v3':
-        def lunar_empty_wrapper(env):
-            return env
-        kwargs = {
-            'optimizer_spec': lander_optimizer(),
-            'q_func': create_lander_q_network,
-            'replay_buffer_size': 50000,
-            'gamma': 1.00,
-            'learning_starts': 1000,
-            'learning_freq': 2,
-            'frame_history_len': 1,
-            'target_update_freq': 1000,
-            'grad_norm_clipping': 10,
-            'lander': True,
-            'num_timesteps': 500000
-        }
-        kwargs['exploration_schedule'] = lander_exploration_schedule(kwargs['num_timesteps'])
-    else:
-        def lunar_empty_wrapper(env):
-            return env
+    if env_name == 'Ant-v2':
         kwargs = {
             'replay_buffer_size': 50000,
-            'learning_starts': 1000,
+            'learning_starts': 5000,
             'learning_freq': 2,
             'frame_history_len': 1,
-            'target_update_freq': 1000,
+            'target_update_freq': 300,
             'grad_norm_clipping': 10,
             'lander': True,
             'num_timesteps': 200000
         }
-        kwargs['exploration_schedule'] = lander_exploration_schedule(kwargs['num_timesteps'])
+        kwargs['exploration_schedule'] = exploration_schedule(kwargs['num_timesteps'])
+    elif env_name == 'HalfCheetah-v2':
+        kwargs = {
+            'replay_buffer_size': 50000,
+            'learning_starts': 5000,
+            'learning_freq': 2,
+            'frame_history_len': 1,
+            'target_update_freq': 300,
+            'grad_norm_clipping': 10,
+            'lander': True,
+            'num_timesteps': 200000
+        }
+        kwargs['exploration_schedule'] = exploration_schedule(kwargs['num_timesteps'])
+    else:
+        kwargs = {
+            'replay_buffer_size': 50000,
+            'learning_starts': 5000,
+            'learning_freq': 2,
+            'frame_history_len': 1,
+            'target_update_freq': 300,
+            'grad_norm_clipping': 10,
+            'lander': True,
+            'num_timesteps': 200000
+        }
+        kwargs['exploration_schedule'] = exploration_schedule(kwargs['num_timesteps'])
 
     return kwargs
 
-def lander_exploration_schedule(num_timesteps):
+def exploration_schedule(num_timesteps):
     return PiecewiseSchedule(
         [
             (0, 1),
-            (num_timesteps * 0.25, 0.01),
-        ], outside_value=0.01
+            (num_timesteps * 0.2, 0.02),
+        ], outside_value=0.02
     )
 
 def create_lander_q_network(ob_dim, num_actions):

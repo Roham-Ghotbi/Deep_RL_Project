@@ -12,7 +12,7 @@ from cs285.infrastructure import pytorch_util as ptu
 from cs285.policies.base_policy import BasePolicy
 from cs285.infrastructure import utils
 
-class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
+class ActorPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
 
     def __init__(self,
                  ac_dim,
@@ -22,6 +22,7 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
                  discrete=False,
                  learning_rate=1e-4,
                  env=None,
+                 hparams=None,
                  training=True,
                  nn_baseline=False,
                  **kwargs
@@ -37,6 +38,7 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
         self.learning_rate = learning_rate
         self.training = training
         self.nn_baseline = nn_baseline
+        self.grad_norm_clipping = hparams['grad_norm_clipping']
         if env is not None:
             self.env = env
 
@@ -64,19 +66,7 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
                                       n_layers=self.n_layers, size=self.size,
                                       activation='relu',
                                       output_activation='tanh')
-            self.cov_factor = torch.normal(-1.5, 0.05, size=(self.ac_dim,self.ac_dim), dtype=torch.float32, device=ptu.device)
-            self.logstd = torch.zeros(self.ac_dim, dtype=torch.float32, device=ptu.device)
-            for i in range(self.ac_dim):
-                for j in range(i, self.ac_dim):
-                    self.cov_factor[i, j] = self.cov_factor[j,i]
-            self.logstd = nn.Parameter(self.logstd)
-            self.cov_factor = nn.Parameter(self.cov_factor)
             self.mean_net.to(ptu.device)
-            self.logstd.to(ptu.device)
-            # self.optimizer = optim.Adam(
-            #     itertools.chain([self.cov_factor],[self.logstd], self.mean_net.parameters()),
-            #     self.learning_rate
-            # )
             self.optimizer = optim.Adam(
                 self.mean_net.parameters(),
                 self.learning_rate
@@ -85,28 +75,8 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
                 self.optimizer,
                 lambda epoch: 1e-3
             )
-            # self.learning_rate_scheduler = optim.lr_scheduler.StepLR(
-            #     self.optimizer,
-            #     step_size=5000,
-            #     gamma=0.7
-            # )
 
-        if nn_baseline:
-            self.baseline = ptu.build_mlp(
-                input_size=self.ob_dim,
-                output_size=1,
-                n_layers=self.n_layers,
-                size=self.size,
-                activation='tanh',
-                output_activation='identity'
-            )
-            self.baseline.to(ptu.device)
-            self.baseline_optimizer = optim.Adam(
-                self.baseline.parameters(),
-                self.learning_rate,
-            )
-        else:
-            self.baseline = None
+        self.baseline = None
 
     ##################################
 
@@ -115,9 +85,7 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
 
     ##################################
 
-    # query the policy with observation(s) to get selected action(s)
     def get_action(self, obs: np.ndarray) -> np.ndarray:
-        # TODO: get this from hw1 or hw2
         if len(obs.shape) > 1:
             observation = obs
         else:
@@ -126,17 +94,11 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
             observation = ptu.from_numpy(obs)
         actions = self.forward(observation)
         if self.discrete:
-            # actions = c.sample()
             action = actions.sample()
         else:
-            # action = c.sample()
-            action = actions #.sample()
-        # c = torch.distributions.Categorical(logits=state)
-        # action = c.sample()
-        # action = state.argmax()
+            action = actions
         return action.cpu().detach().numpy()
 
-    # update/train this policy
     def update(self, ob_no_a, ob_no_b, ac_na_b, critic, **kwargs):
         if self.discrete:
             ac_na_b = ac_na_b[:,0].reshape((-1,1))
@@ -154,6 +116,7 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
             loss = -torch.mean(loss)
         self.optimizer.zero_grad()
         loss.backward()
+        # utils.clip_grad_value_(self.mean_net.parameters(), self.grad_norm_clipping)
         self.optimizer.step()
 
         train_log = {
@@ -162,20 +125,11 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
 
         return train_log
 
-    # This function defines the forward pass of the network.
-    # You can return anything you want, but you should be able to differentiate
-    # through it. For example, you can return a torch.FloatTensor. You can also
-    # return more flexible objects, such as a
-    # `torch.distributions.Distribution` object. It's up to you!
     def forward(self, observation: torch.FloatTensor):
-        # TODO: get this from hw1 or hw2
         if self.discrete:
             state = self.logits_na(observation)
             state = torch.distributions.Categorical(logits=state)
             return state
         else:
-            # c = torch.distributions.LowRankMultivariateNormal(self.mean_net(observation).mul(ptu.from_numpy(self.env.action_space.high)),
-            #                                                   10 ** self.cov_factor,
-            #                                                   10 ** self.logstd)
             c = self.mean_net(observation)
             return c
