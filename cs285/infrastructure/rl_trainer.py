@@ -21,7 +21,7 @@ from cs285.infrastructure.dqn_utils import (
 
 # how many rollouts to save as videos to tensorboard
 MAX_NVIDEO = 1
-MAX_VIDEO_LEN = 40 # we overwrite this in the code below
+MAX_VIDEO_LEN = 400 # we overwrite this in the code below
 
 
 class RL_Trainer(object):
@@ -49,10 +49,17 @@ class RL_Trainer(object):
         ## ENV
         #############
         register_custom_envs()
+
+
         self.env = gym.make(self.params['env_name'])
         self.env.seed(seed)
+        # if 'env_wrappers' in self.params['agent_params']:
+        #     # These operations are currently only for Atari envs
+        #     self.env = wrappers.Monitor(self.env, os.path.join(self.params['logdir'], "gym"), force=True)
+        #     self.env = params['agent_params']['env_wrappers'](self.env)
 
         # import plotting (locally if 'obstacles' env)
+
         import matplotlib
         matplotlib.use('Agg')
 
@@ -94,7 +101,6 @@ class RL_Trainer(object):
 
         self.avg_eval_ret = []
         self.std_eval_ret = []
-        self.noise_ratio = self.params['observation_noise_multiple']
 
     def apply_noise(self, input, noise_ratio):
         n = np.random.normal(np.zeros(input.shape, dtype=np.float32), scale=np.abs(input) * noise_ratio)
@@ -136,8 +142,8 @@ class RL_Trainer(object):
             ob, ac, reward, next_ob, terminal = self.agent.step_env()
 
             ## applying noise to observations
-            ob = self.apply_noise(ob,self.noise_ratio)
-            next_ob = self.apply_noise(next_ob, self.noise_ratio)
+            # ob = self.apply_noise(ob,self.noise_ratio)
+            # next_ob = self.apply_noise(next_ob, self.noise_ratio)
 
             obs.append(ob)
             acs.append(ac)
@@ -187,7 +193,7 @@ class RL_Trainer(object):
 
             #save train/eval videos
             if self.save_vids:
-                print('\nSaving train rollouts as videos...')
+                print('\nSaving eval rollouts as videos...')
                 self.logger.log_paths_as_videos(eval_video_paths, itr, fps=self.fps,max_videos_to_save=MAX_NVIDEO,
                                                  video_title='eval_rollouts')
         #######################

@@ -2,7 +2,11 @@ import numpy as np
 
 from cs285.infrastructure.dqn_utils import MemoryOptimizedReplayBuffer, PiecewiseSchedule
 from cs285.policies.ActorPolicy import ActorPolicy
+from cs285.policies.argmax_policy import ArgMaxPolicy
 from cs285.critics.diffq_critic import DiffQCritic
+from cs285.critics.diffq_critic_base import DiffQCriticBase
+from cs285.exploration.rnd_model import RNDModel
+
 import torch
 from cs285.infrastructure import pytorch_util as ptu
 
@@ -12,7 +16,8 @@ class DiffQAgent(object):
         self.env = env
         self.agent_params = agent_params
         self.batch_size = agent_params['batch_size']
-        self.last_obs = self.env.reset()
+        self.noise_ratio = self.agent_params['observation_noise_multiple']
+        self.last_obs = self.apply_noise(self.env.reset(),self.noise_ratio)
 
         self.num_actions = agent_params['ac_dim']
         self.learning_starts = agent_params['learning_starts']
@@ -23,8 +28,10 @@ class DiffQAgent(object):
         self.replay_buffer_idx = None
         self.exploration = agent_params['exploration_schedule']
 
-        self.critic = DiffQCritic(agent_params)
+        self.critic = DiffQCritic(agent_params) if not agent_params['diff_training_disabled'] else DiffQCriticBase(agent_params)
 
+        ## Exploration
+        
         self.actor = ActorPolicy(agent_params['ac_dim'],
                                    agent_params['ob_dim'],
                                    agent_params['n_layers'],
@@ -32,7 +39,9 @@ class DiffQAgent(object):
                                    agent_params['discrete'],
                                    agent_params['learning_rate'],
                                    env,
-                                   agent_params)
+                                   agent_params,
+                                   self.critic)
+
         lander = agent_params['env_name'].startswith('LunarLander')
         self.discrete = agent_params['discrete']
         self.replay_buffer = MemoryOptimizedReplayBuffer(
@@ -40,8 +49,15 @@ class DiffQAgent(object):
         self.t = 0
         self.num_param_updates = 0
 
+
     def add_to_replay_buffer(self, paths):
         pass
+
+    def apply_noise(self, input, noise_ratio):
+        n = np.random.normal(np.zeros(input.shape, dtype=np.float32), scale=np.sqrt(np.square(input)) * noise_ratio)
+        n = n.astype('float32')
+        return input + n
+
 
     def step_env(self):
         """
@@ -50,6 +66,7 @@ class DiffQAgent(object):
             advanced one step, and the replay buffer should contain one more transition.
             Note that self.last_obs must always point to the new latest observation.
         """
+
         self.replay_buffer_idx = self.replay_buffer.store_frame(self.last_obs, self.agent_params['ac_dim'])
         eps = self.exploration.value(self.t)
 
@@ -69,10 +86,12 @@ class DiffQAgent(object):
         
         self.last_obs, reward, done, info = self.env.step(action)
 
+        self.last_obs = self.apply_noise(self.last_obs, self.noise_ratio)
+
         self.replay_buffer.store_effect(self.replay_buffer_idx, action, reward, done)
 
         if done:
-            self.last_obs = self.env.reset()
+            self.last_obs = self.apply_noise(self.env.reset(), self.noise_ratio)
         return obv, action, reward, self.last_obs, done
 
     def sample(self, batch_size):

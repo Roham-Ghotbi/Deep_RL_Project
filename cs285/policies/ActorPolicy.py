@@ -23,6 +23,7 @@ class ActorPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
                  learning_rate=1e-4,
                  env=None,
                  hparams=None,
+                 critic=None,
                  training=True,
                  nn_baseline=False,
                  **kwargs
@@ -77,6 +78,7 @@ class ActorPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
             )
 
         self.baseline = None
+        self.critic = critic
 
     ##################################
 
@@ -85,7 +87,7 @@ class ActorPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
 
     ##################################
 
-    def get_action(self, obs: np.ndarray) -> np.ndarray:
+    def get_action(self, obs: np.ndarray, critic=None) -> np.ndarray:
         if len(obs.shape) > 1:
             observation = obs
         else:
@@ -94,7 +96,7 @@ class ActorPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
             observation = ptu.from_numpy(obs)
         actions = self.forward(observation)
         if self.discrete:
-            action = actions.sample()
+            action = actions.logits.argmax(dim=-1)
         else:
             action = actions
         return action.cpu().detach().numpy()
@@ -103,15 +105,25 @@ class ActorPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
         if self.discrete:
             ac_na_b = ac_na_b[:,0].reshape((-1,1))
             ac_dist = self.forward(ob_no_a)
-            ac_na_a = ac_dist.sample().to(dtype=torch.float32).reshape((-1,1))
-            state = torch.cat((ob_no_a, ob_no_b, ac_na_b), dim=-1)
-            diffQs = critic.q_net_target(state)
-            _, target = diffQs.max(dim=1)
+            ac_na_a = ac_dist.logits.argmax(dim=-1).to(dtype=torch.float32).reshape((-1,1))
+            if critic.q_net_target._modules['0'].in_features == 2*(self.ob_dim):
+                state = torch.cat((ob_no_a, ob_no_a), dim=-1)
+                diffQs = critic.q_net_target(state).reshape((-1,self.ac_dim,self.ac_dim))
+                diffQs = torch.gather(diffQs, 2, ac_na_a.unsqueeze(-1).repeat(1,self.ac_dim,1).to(dtype=torch.int64).detach()).squeeze(2)
+                _, target = diffQs.max(dim=1)
+            else:
+                state = ob_no_a
+                diffQs = critic.q_net_target(state)
+                _, target = diffQs.max(dim=1)
             loss = self.loss(ac_dist.logits, target.detach())
         else:
             ac_na_b = ac_na_b.reshape((-1, self.ac_dim))
             ac_na_a = self.forward(ob_no_a).to(dtype=torch.float32).reshape(ac_na_b.shape)
-            state = torch.cat((ob_no_a, ob_no_b, ac_na_a , ac_na_b), dim = -1)
+            if critic.q_net_target._modules['0'].in_features == 2*(self.ob_dim + self.ac_dim):
+                # state = torch.cat((ob_no_a, ob_no_b, ac_na_a , ac_na_b.detach()), dim = -1)
+                state = torch.cat((ob_no_a, ob_no_a, ac_na_a, ac_na_a.detach()), dim=-1)
+            else:
+                state = torch.cat((ob_no_a, ac_na_a), dim=-1)
             loss = critic.q_net_target(state)
             loss = -torch.mean(loss)
         self.optimizer.zero_grad()

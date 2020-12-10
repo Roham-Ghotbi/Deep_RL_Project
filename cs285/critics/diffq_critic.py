@@ -42,14 +42,14 @@ class DiffQCritic(BaseCritic):
             )
         else:
             self.q_net = ptu.build_mlp(
-                self.ob_dim + self.ob_dim + 1,
-                self.ac_dim,
+                self.ob_dim + self.ob_dim,
+                self.ac_dim * self.ac_dim,
                 n_layers=self.n_layers,
                 size=self.size
             )
             self.q_net_target = ptu.build_mlp(
-                self.ob_dim + self.ob_dim + 1,
-                self.ac_dim,
+                self.ob_dim + self.ob_dim,
+                self.ac_dim * self.ac_dim,
                 n_layers=self.n_layers,
                 size=self.size
             )
@@ -98,8 +98,10 @@ class DiffQCritic(BaseCritic):
 
 
         if self.discrete:
-            input = torch.cat((ob_no, ac_na_b), dim=1)
-            diff_Qs = self.q_net(input.to(ptu.device))
+            # input = torch.cat((ob_no), dim=1)
+            input = ob_no
+            diff_Qs = self.q_net(input.to(ptu.device)).reshape((-1,self.ac_dim,self.ac_dim))
+            diff_Qs = torch.gather(diff_Qs, 2, ac_na_b.unsqueeze(-1).repeat(1,self.ac_dim,1).to(dtype=torch.int64).detach()).squeeze(2)
             diff_Qs = torch.gather(diff_Qs, 1, ac_na_a.to(dtype=torch.int64).detach()).squeeze(1)
         else:
             input = torch.cat((ob_no, ac_na), dim = 1)
@@ -107,19 +109,25 @@ class DiffQCritic(BaseCritic):
 
         if self.double_q:
             if self.discrete:
-                input_tp1 = torch.cat((next_ob_no, ac_tp1_b), dim=-1)
-                qa_tp1_values = self.q_net(input_tp1.to(ptu.device))
-                _ , ind = qa_tp1_values.max(dim=1) # need to be changed
-                qa_tp1_values = self.q_net_target(input_tp1.to(ptu.device))
-                diff_Qs_tp1 = torch.gather(qa_tp1_values, 1, ind.unsqueeze(1)).squeeze(1)
+                # input_tp1 = torch.cat((next_ob_no, ac_tp1_b), dim=-1)
+                input_tp1 = next_ob_no
+                temp = self.q_net(input_tp1.to(ptu.device)).reshape((-1,self.ac_dim,self.ac_dim))
+                temp, ind1 = temp.max(dim=2)
+                _, ind2 = temp.min(dim=1)
+                ind1 = torch.gather(ind1, 1, ind2.unsqueeze(1))
+                qa_tp1_values = self.q_net_target(input_tp1.to(ptu.device)).reshape((-1,self.ac_dim,self.ac_dim))
+                diff_Qs_tp1 = torch.gather(qa_tp1_values, 2, ind2.unsqueeze(1).unsqueeze(1).repeat(1,self.ac_dim,1)).squeeze(-1)
+                diff_Qs_tp1 = torch.gather(diff_Qs_tp1, 1, ind1).squeeze(1)
             else:
                 input_tp1 = torch.cat((next_ob_no, ac_tp1), dim=-1)
                 diff_Qs_tp1 = self.q_net_target(input_tp1.to(ptu.device))
         else:
             if self.discrete:
-                input_tp1 = torch.cat((next_ob_no, ac_tp1_b), dim=-1)
-                diff_Qs_tp1 = self.q_net(input_tp1.to(ptu.device))
-                diff_Qs_tp1 , ind = diff_Qs_tp1.max(dim=1)
+                # input_tp1 = torch.cat((next_ob_no), dim=-1)
+                input_tp1 = next_ob_no
+                diff_Qs_tp1 = self.q_net(input_tp1.to(ptu.device)).reshape((-1,self.ac_dim,self.ac_dim))
+                diff_Qs_tp1,_ = diff_Qs_tp1.max(dim=2)
+                diff_Qs_tp1,_ = diff_Qs_tp1.min(dim=1)
             else:
                 input_tp1 = torch.cat((next_ob_no, ac_tp1), dim = -1)
                 diff_Qs_tp1 = self.q_net(input_tp1.to(ptu.device))

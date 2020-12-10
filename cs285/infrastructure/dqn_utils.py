@@ -33,10 +33,30 @@ def register_custom_envs():
             max_episode_steps=1000,
             reward_threshold=200,
         )
-
+    if 'hopper' not in registry.env_specs:
+        register(
+            id='hopper-v0',
+            entry_point='cs285.envs.box2d.hopper:HopperEnv',
+            max_episode_steps=1000,
+            reward_threshold=500,
+        )
+    # if 'swimmer' not in registry.env_specs:
+    #     register(
+    #         id='swimmer-v0',
+    #         entry_point='cs285.envs.box2d.swimmer:SwimmerEnv',
+    #         max_episode_steps=1000,
+    #     )
+    # if 'reacher' not in registry.env_specs:
+    #     register(
+    #         id='reacher-v0',
+    #         entry_point='cs285.envs.box2d.reacher:ReacherEnv',
+    #         max_episode_steps=1000,
+    #     )
 
 def get_env_kwargs(env_name):
     if env_name == 'Ant-v2':
+        def empty_wrapper(env):
+            return env
         kwargs = {
             'replay_buffer_size': 50000,
             'learning_starts': 5000,
@@ -45,10 +65,13 @@ def get_env_kwargs(env_name):
             'target_update_freq': 300,
             'grad_norm_clipping': 10,
             'lander': True,
-            'num_timesteps': 200000
+            'num_timesteps': 500000,
+            'env_wrappers': empty_wrapper
         }
         kwargs['exploration_schedule'] = exploration_schedule(kwargs['num_timesteps'])
     elif env_name == 'HalfCheetah-v2':
+        def empty_wrapper(env):
+            return env
         kwargs = {
             'replay_buffer_size': 50000,
             'learning_starts': 5000,
@@ -57,19 +80,24 @@ def get_env_kwargs(env_name):
             'target_update_freq': 300,
             'grad_norm_clipping': 10,
             'lander': True,
-            'num_timesteps': 200000
+            'num_timesteps': 500000,
+            'env_wrappers': empty_wrapper
         }
         kwargs['exploration_schedule'] = exploration_schedule(kwargs['num_timesteps'])
     else:
+        def empty_wrapper(env):
+            return env
+
         kwargs = {
             'replay_buffer_size': 50000,
             'learning_starts': 5000,
             'learning_freq': 2,
             'frame_history_len': 1,
-            'target_update_freq': 300,
+            'target_update_freq': 3000,
             'grad_norm_clipping': 10,
             'lander': True,
-            'num_timesteps': 200000
+            'num_timesteps': 200000,
+            'env_wrappers': empty_wrapper
         }
         kwargs['exploration_schedule'] = exploration_schedule(kwargs['num_timesteps'])
 
@@ -79,7 +107,7 @@ def exploration_schedule(num_timesteps):
     return PiecewiseSchedule(
         [
             (0, 1),
-            (num_timesteps * 0.2, 0.02),
+            (num_timesteps * 0.2 *0 + 40000, 0.02),
         ], outside_value=0.02
     )
 

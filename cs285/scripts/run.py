@@ -7,6 +7,19 @@ from cs285.agents.diffq_agent import DiffQAgent
 from cs285.infrastructure.dqn_utils import get_env_kwargs
 
 
+#@title set up virtual display
+
+from pyvirtualdisplay import Display
+
+display = Display(visible=0, size=(1400, 900))
+display.start()
+
+# For later
+from cs285.infrastructure.colab_utils import (
+    wrap_env,
+    show_video
+)
+
 class diffQ_Trainer(object):
 
     def __init__(self, params):
@@ -49,24 +62,24 @@ def main():
         #          'LunarLanderContinuous-v2','Pendulum-v0')
     )
 
-    parser.add_argument('--ep_len', type=int, default=1000)
+    parser.add_argument('--ep_len', type=int, default=200)
     parser.add_argument('--exp_name', type=str, default='todo')
 
-    parser.add_argument('--eval_batch_size', type=int, default=4000)
+    parser.add_argument('--eval_batch_size', type=int, default=2000)
 
     parser.add_argument('--batch_size', '-b', type=int, default=16)  # steps collected per train iteration
 
-    parser.add_argument('--num_agent_train_steps_per_iter', type=int, default=3)
+    parser.add_argument('--num_agent_train_steps_per_iter', type=int, default=1)
     parser.add_argument('--num_critic_updates_per_agent_update', type=int, default=1)
     parser.add_argument('--double_q', action='store_true', default=False)
 
-    parser.add_argument('--seed', type=int, default=1)
+    parser.add_argument('--seed', type=int, default=2)
     parser.add_argument('--no_gpu', '-ngpu', action='store_true')
     parser.add_argument('--which_gpu', '-gpu_id', default=0)
     parser.add_argument('--scalar_log_freq', type=int, default=int(1000))
-    parser.add_argument('--video_log_freq', type=int, default=10000)
+    parser.add_argument('--video_log_freq', type=int, default=-1)
 
-    parser.add_argument('--observation_noise_multiple', type=float, default=0.15)
+    parser.add_argument('--observation_noise_multiple', type=float, default=0.0)
     parser.add_argument('--action_noise_multiple', type=float, default=0.)
 
     parser.add_argument('--n_layers', '-l', type=int, default=2)
@@ -76,6 +89,8 @@ def main():
 
     parser.add_argument('--save_params', action='store_true')
     parser.add_argument('--save_vid_rollout', action='store_true', default=False)
+
+    parser.add_argument('--diff_training_disabled', action='store_true', default=False)
     
     parser.add_argument('--learning_rate','-lr', type=float, default=1)
     args = parser.parse_args()
@@ -98,7 +113,9 @@ def main():
         os.makedirs(logdir)
 
     print("\n\n\nLOGGING TO: ", logdir, "\n\n\n")
-
+    f = open(logdir + "/dict.txt", "w")
+    f.write(str(params))
+    f.close()
     trainer = diffQ_Trainer(params)
     trainer.run_training_loop()
     # t = (glob.glob('*.mat')).__len__()

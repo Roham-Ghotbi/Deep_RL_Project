@@ -42,13 +42,13 @@ class DiffQCriticBase(BaseCritic):
             )
         else:
             self.q_net = ptu.build_mlp(
-                self.ob_dim + 1,
+                self.ob_dim,
                 self.ac_dim,
                 n_layers=self.n_layers,
                 size=self.size
             )
             self.q_net_target = ptu.build_mlp(
-                self.ob_dim + 1,
+                self.ob_dim,
                 self.ac_dim,
                 n_layers=self.n_layers,
                 size=self.size
@@ -83,21 +83,23 @@ class DiffQCriticBase(BaseCritic):
         """
         # batch a
         ob_no, ac_na, reward_n, next_ob_no, terminal_n = self.unwrap_path(batch_a)
-        ac_tp1 = ptu.from_numpy(actor.get_action(next_ob_no_a)).reshape((ac_na_a.shape[0],-1))
+        ac_tp1 = ptu.from_numpy(actor.get_action(next_ob_no)).reshape((ac_na.shape[0],-1))
 
         if self.discrete:
-            input = torch.cat((ob_no, ac_na), dim=1)
-            diff_Qs_base = self.q_net(input.to(ptu.device))
-            # diff_Qs_base = torch.gather(diff_Qs_base, 1, ac_na_a.to(dtype=torch.int64).detach()).squeeze(1)
+            # input = torch.cat((ob_no), dim=1)
+            input = ob_no
+            diff_Qs_base = self.q_net(input.to(ptu.device)).reshape((-1, self.ac_dim))
+            diff_Qs_base = torch.gather(diff_Qs_base, 1, ac_na.to(dtype=torch.int64).detach()).squeeze(1)
         else:
-            input = torch.cat((ob_no, ac_na), dim = 1)
+            input = torch.cat((ob_no, ac_na.reshape((-1,self.ac_dim))), dim = -1)
             diff_Qs_base = self.q_net(input.to(ptu.device)).squeeze(-1)
 
         if self.double_q:
             if self.discrete:
-                input_tp1 = torch.cat((next_ob_no, ac_tp1), dim=-1)
-                qa_tp1_values = self.q_net(input_tp1.to(ptu.device))
-                _ , ind = qa_tp1_values.max(dim=1) # need to be changed
+                # input_tp1 = torch.cat((next_ob_no, ac_tp1_b), dim=-1)
+                input_tp1 = next_ob_no
+                qa_tp1_values = self.q_net(input_tp1.to(ptu.device)).reshape((-1, self.ac_dim))
+                _, ind = qa_tp1_values.max(dim=1)
                 qa_tp1_values = self.q_net_target(input_tp1.to(ptu.device))
                 diff_Qs_base_tp1 = torch.gather(qa_tp1_values, 1, ind.unsqueeze(1)).squeeze(1)
             else:
@@ -105,14 +107,15 @@ class DiffQCriticBase(BaseCritic):
                 diff_Qs_base_tp1 = self.q_net_target(input_tp1.to(ptu.device))
         else:
             if self.discrete:
-                input_tp1 = torch.cat((next_ob_no, ac_tp1), dim=-1)
-                diff_Qs_base_tp1 = self.q_net(input_tp1.to(ptu.device))
-                diff_Qs_base_tp1 , ind = diff_Qs_base_tp1.max(dim=1)
+                # input_tp1 = torch.cat((next_ob_no), dim=-1)
+                input_tp1 = next_ob_no
+                diff_Qs_base_tp1 = self.q_net(input_tp1.to(ptu.device)).reshape((-1, self.ac_dim))
+                diff_Qs_base_tp1, _ = diff_Qs_base_tp1.max(dim=1)
             else:
-                input_tp1 = torch.cat((next_ob_no, ac_tp1), dim = -1)
+                input_tp1 = torch.cat((next_ob_no, ac_tp1.reshape((-1,self.ac_dim))), dim = -1)
                 diff_Qs_base_tp1 = self.q_net(input_tp1.to(ptu.device))
 
-        target = reward_n + self.gamma * diff_Qs_base_tp1.squeeze(-1)
+        target = reward_n + self.gamma * diff_Qs_base_tp1.squeeze(-1) *(1 - terminal_n)
         target = target.detach()
 
 
