@@ -4,12 +4,12 @@ import scipy.io as sio
 
 from cs285.infrastructure.rl_trainer import RL_Trainer
 from cs285.agents.diffq_agent import DiffQAgent
+from cs285.agents.exploration_exploitation_agent import Explore_Exploit_agent
 from cs285.infrastructure.dqn_utils import get_env_kwargs
-
+from pyvirtualdisplay import Display
 
 #@title set up virtual display
 
-from pyvirtualdisplay import Display
 
 display = Display(visible=0, size=(1400, 900))
 display.start()
@@ -36,7 +36,7 @@ class diffQ_Trainer(object):
 
         self.agent_params = {**train_args, **env_args, **params}
 
-        self.params['agent_class'] = DiffQAgent
+        self.params['agent_class'] = DiffQAgent if not params['exploration'] else Explore_Exploit_agent
         self.agent_params['gamma'] = params['discount']
         self.params['agent_params'] = self.agent_params
         self.params['train_batch_size'] = params['batch_size']
@@ -62,12 +62,12 @@ def main():
         #          'LunarLanderContinuous-v2','Pendulum-v0')
     )
 
-    parser.add_argument('--ep_len', type=int, default=200)
+    parser.add_argument('--ep_len', type=int, default=1000)
     parser.add_argument('--exp_name', type=str, default='todo')
 
-    parser.add_argument('--eval_batch_size', type=int, default=2000)
+    parser.add_argument('--eval_batch_size', type=int, default=4000)
 
-    parser.add_argument('--batch_size', '-b', type=int, default=16)  # steps collected per train iteration
+    parser.add_argument('--batch_size', '-b', type=int, default=64)  # steps collected per train iteration
 
     parser.add_argument('--num_agent_train_steps_per_iter', type=int, default=1)
     parser.add_argument('--num_critic_updates_per_agent_update', type=int, default=1)
@@ -88,11 +88,18 @@ def main():
     parser.add_argument('--n_iter', '-n', type=int, default=100)
 
     parser.add_argument('--save_params', action='store_true')
-    parser.add_argument('--save_vid_rollout', action='store_true', default=False)
+    parser.add_argument('--save_vid_rollout', action='store_true', default=True)
 
     parser.add_argument('--diff_training_disabled', action='store_true', default=False)
     
     parser.add_argument('--learning_rate','-lr', type=float, default=1)
+    parser.add_argument('--rnd_output_size', type=int, default=5)
+    parser.add_argument('--rnd_n_layers', type=int, default=2)
+    parser.add_argument('--rnd_size', type=int, default=400)
+    parser.add_argument('--exploration', action='store_true', default=True)
+
+    parser.add_argument('--activation_func', default='relu')
+
     args = parser.parse_args()
 
     # convert to dictionary

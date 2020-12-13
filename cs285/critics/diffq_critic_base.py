@@ -32,26 +32,30 @@ class DiffQCriticBase(BaseCritic):
                 self.ob_dim + self.ac_dim,
                 1,
                 n_layers=self.n_layers,
-                size=self.size
+                size=self.size,
+                activation=hparams['activation_func']
             )
             self.q_net_target = ptu.build_mlp(
                 self.ob_dim + self.ac_dim,
                 1,
                 n_layers=self.n_layers,
-                size=self.size
+                size=self.size,
+                activation=hparams['activation_func']
             )
         else:
             self.q_net = ptu.build_mlp(
                 self.ob_dim,
                 self.ac_dim,
                 n_layers=self.n_layers,
-                size=self.size
+                size=self.size,
+                activation=hparams['activation_func']
             )
             self.q_net_target = ptu.build_mlp(
                 self.ob_dim,
                 self.ac_dim,
                 n_layers=self.n_layers,
-                size=self.size
+                size=self.size,
+                activation=hparams['activation_func']
             )
         self.loss = nn.MSELoss()
         self.optimizer = optim.Adam(
@@ -124,7 +128,7 @@ class DiffQCriticBase(BaseCritic):
 
         self.optimizer.zero_grad()
         loss.backward()
-        # utils.clip_grad_value_(self.q_net.parameters(), self.grad_norm_clipping)
+        utils.clip_grad_value_(self.q_net.parameters(), self.grad_norm_clipping)
         self.optimizer.step()
 
 
@@ -140,11 +144,12 @@ class DiffQCriticBase(BaseCritic):
 
     def unwrap_path(self, batch):
         ob_no, ac_na, reward_n, next_ob_no, terminal_n = batch
-        ob_no = ptu.from_numpy(ob_no)
-        ac_na = ptu.from_numpy(ac_na)
-        next_ob_no = ptu.from_numpy(next_ob_no)
-        reward_n = ptu.from_numpy(reward_n)
-        terminal_n = ptu.from_numpy(terminal_n)
+        if not torch.is_tensor(ob_no):
+            ob_no = ptu.from_numpy(ob_no)
+            ac_na = ptu.from_numpy(ac_na)
+            next_ob_no = ptu.from_numpy(next_ob_no)
+            reward_n = ptu.from_numpy(reward_n)
+            terminal_n = ptu.from_numpy(terminal_n)
 
         if self.discrete:
             ac_na = ac_na[:,0].unsqueeze(1)

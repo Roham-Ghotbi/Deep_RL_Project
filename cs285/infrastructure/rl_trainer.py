@@ -52,6 +52,8 @@ class RL_Trainer(object):
 
 
         self.env = gym.make(self.params['env_name'])
+
+
         self.env.seed(seed)
         # if 'env_wrappers' in self.params['agent_params']:
         #     # These operations are currently only for Atari envs

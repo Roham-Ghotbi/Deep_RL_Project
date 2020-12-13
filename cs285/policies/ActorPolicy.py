@@ -10,7 +10,7 @@ from torch import distributions
 
 from cs285.infrastructure import pytorch_util as ptu
 from cs285.policies.base_policy import BasePolicy
-from cs285.infrastructure import utils
+from torch.nn import utils
 
 class ActorPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
 
@@ -104,14 +104,30 @@ class ActorPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
     def update(self, ob_no_a, ob_no_b, ac_na_b, critic, **kwargs):
         if self.discrete:
             ac_na_b = ac_na_b[:,0].reshape((-1,1))
-            ac_dist = self.forward(ob_no_a)
-            ac_na_a = ac_dist.logits.argmax(dim=-1).to(dtype=torch.float32).reshape((-1,1))
+
+            # ac_na_a = self.forward(ob_no_a).logits.argmax(dim=-1).to(dtype=torch.float32).reshape((-1,1))
+            # ac_na_bb = self.forward(ob_no_b).logits.argmax(dim=-1).to(dtype=torch.float32).reshape((-1, 1))
+
             if critic.q_net_target._modules['0'].in_features == 2*(self.ob_dim):
-                state = torch.cat((ob_no_a, ob_no_a), dim=-1)
+                ac_dist = self.forward(ob_no_b)
+                ac_na_bb = ac_dist.sample().to(dtype=torch.float32).reshape((-1, 1))
+                state = torch.cat((ob_no_b, ob_no_b), dim=-1)
                 diffQs = critic.q_net_target(state).reshape((-1,self.ac_dim,self.ac_dim))
-                diffQs = torch.gather(diffQs, 2, ac_na_a.unsqueeze(-1).repeat(1,self.ac_dim,1).to(dtype=torch.int64).detach()).squeeze(2)
+                diffQs = torch.gather(diffQs, 2, ac_na_bb.unsqueeze(-1).repeat(1,self.ac_dim,1).to(dtype=torch.int64).detach()).squeeze(2)
+                _, target = diffQs.max(dim=1)
+                loss = self.loss(ac_dist.logits, target.detach())
+                self.optimizer.zero_grad()
+                loss.backward()
+                utils.clip_grad_value_(self.logits_na.parameters(), self.grad_norm_clipping)
+                self.optimizer.step()
+                ac_dist = self.forward(ob_no_a)
+                ac_na_a = ac_dist.sample().to(dtype=torch.float32).reshape((-1, 1))
+                state = torch.cat((ob_no_a, ob_no_a), dim=-1)
+                diffQs = critic.q_net_target(state).reshape((-1, self.ac_dim, self.ac_dim))
+                diffQs = torch.gather(diffQs, 2, ac_na_a.unsqueeze(-1).repeat(1, self.ac_dim, 1).to(dtype=torch.int64).detach()).squeeze(2)
                 _, target = diffQs.max(dim=1)
             else:
+                ac_dist = self.forward(ob_no_a)
                 state = ob_no_a
                 diffQs = critic.q_net_target(state)
                 _, target = diffQs.max(dim=1)
@@ -119,16 +135,31 @@ class ActorPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
         else:
             ac_na_b = ac_na_b.reshape((-1, self.ac_dim))
             ac_na_a = self.forward(ob_no_a).to(dtype=torch.float32).reshape(ac_na_b.shape)
+            ac_na_bb = self.forward(ob_no_b).to(dtype=torch.float32).reshape(ac_na_b.shape)
             if critic.q_net_target._modules['0'].in_features == 2*(self.ob_dim + self.ac_dim):
                 # state = torch.cat((ob_no_a, ob_no_b, ac_na_a , ac_na_b.detach()), dim = -1)
+                state = torch.cat((ob_no_b, ob_no_b, ac_na_bb.detach(), ac_na_bb), dim=-1)
+                loss = critic.q_net_target(state)
+                loss = torch.mean(loss)
+                self.optimizer.zero_grad()
+                loss.backward()
+                utils.clip_grad_value_(self.mean_net.parameters(), self.grad_norm_clipping)
+                self.optimizer.step()
+                ac_na_a = self.forward(ob_no_a).to(dtype=torch.float32).reshape(ac_na_b.shape)
                 state = torch.cat((ob_no_a, ob_no_a, ac_na_a, ac_na_a.detach()), dim=-1)
             else:
                 state = torch.cat((ob_no_a, ac_na_a), dim=-1)
+
             loss = critic.q_net_target(state)
             loss = -torch.mean(loss)
+
+
         self.optimizer.zero_grad()
         loss.backward()
-        # utils.clip_grad_value_(self.mean_net.parameters(), self.grad_norm_clipping)
+        if self.discrete:
+            utils.clip_grad_value_(self.logits_na.parameters(), self.grad_norm_clipping)
+        else:
+            utils.clip_grad_value_(self.mean_net.parameters(), self.grad_norm_clipping)
         self.optimizer.step()
 
         train_log = {

@@ -15,10 +15,9 @@ class ArgMaxPolicy(object):
             observation = obs
         if isinstance(observation, np.ndarray):
             observation = ptu.from_numpy(observation)
-        if observation.shape[1:] != tuple([self.critic.ob_dim*2]):
-            observation = torch.cat((observation,observation), dim = -1)
-        # TODO return the action that maximizes the Q-value
-        # at the current observation as the output
-        actions = self.critic.q_net_target(observation).cpu() # will be ac_dim x ac_dim
-        action = ptu.to_numpy(actions.argmax(dim=-1))
+
+        actions = self.critic.q_net_target(observation).cpu()
+        actions = torch.distributions.Categorical(logits=actions)
+        # action = ptu.to_numpy(actions.argmax(dim=-1))
+        action = ptu.to_numpy(actions.sample())
         return action.squeeze()

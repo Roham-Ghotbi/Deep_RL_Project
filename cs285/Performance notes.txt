@@ -1,0 +1,46 @@
+
+
+Grp A: lunar lander continuous
+	- higher eval_return for diff achieved
+	- max eval_return achieved higher for diff
+
+
+Grp B: pendulum
+	- Actor Loss:
+		- for non-diff: no longer goes down with training as the noise increases
+		- for diff: unlike the non-diff, the actor loss does not diverge and remains consistent and well-behaved.
+	- eval_return:
+		- for non-diff: goes down with increased noise
+		- for diff: also goes down with increased noise, but is more robust.
+		
+		Breakdown of noise cases:
+			- 0 Noise: same performance
+			- 3 Noise: higher reward for diff but roughly the same performance
+			- 5 Noise: Noticeably higher performance for diff (which shows robustness against observation space noise)
+			- 7 Noise: Highest eval_return_avg achieved is higher for diff method, but both have degraded performances compared to [0,3,5]% noise cases
+			- 10 Noise: very degraded performances, but still higher return for diff
+
+
+Grp C: Lunar Lander Discrete
+	- higher eval_return for diff achieved
+	- max eval_return achieved higher for diff
+	- The differential method actually learns how to perform landing and touching the ground, whereas the non-diff method only learns floating (see the gifs for videos)
+
+
+- GrpD: half cheetah
+	- roughly the same eval_return for diff & non-diff
+	- the eval_return for non-diff was slightly better, most likely due to the fact that half cheetah environment has a very high observation dimensionality, and the diff method fails to be expressive enough with the same number of parameters as a non-diff counterpart, so it essentially is less capable, and therefore its performance is also accordingly lower, but still comes very close to the non-diff method.
+	- the diff method actually learned how to walk, but the non-diff method was tripping the whole time (see the gifs)
+
+
+- GrpE: Cartpole (discrete and reward only at the end)
+	- critic loss:
+		- non diff method: (no particular observation)
+		- diff method: critic loss is very very small and that is because no reward or change is being fed to the critic since all rewards are zero except for the final state if you win (which happens very rarely)
+	- eval_return:
+		- non diff method: is able to achieve the high reward of 200 and gets properly trained after some number of steps.
+		- diff method: fails  to even get to the high reward of 200, and never actually gets trained.
+	- eval_return_max:
+		- non diff method: is able to achieve the high reward of 200 at its maximum at some point
+		- diff method: fails  to even get to the high reward of 200 at any point throughout the training.
+	

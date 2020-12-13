@@ -29,18 +29,15 @@ class DiffQAgent(object):
         self.exploration = agent_params['exploration_schedule']
 
         self.critic = DiffQCritic(agent_params) if not agent_params['diff_training_disabled'] else DiffQCriticBase(agent_params)
-
-        ## Exploration
-        
         self.actor = ActorPolicy(agent_params['ac_dim'],
-                                   agent_params['ob_dim'],
-                                   agent_params['n_layers'],
-                                   agent_params['size'],
-                                   agent_params['discrete'],
-                                   agent_params['learning_rate'],
-                                   env,
-                                   agent_params,
-                                   self.critic)
+                                 agent_params['ob_dim'],
+                                 agent_params['n_layers'],
+                                 agent_params['size'],
+                                 agent_params['discrete'],
+                                 agent_params['learning_rate'],
+                                 env,
+                                 agent_params,
+                                 self.critic)
 
         lander = agent_params['env_name'].startswith('LunarLander')
         self.discrete = agent_params['discrete']
@@ -54,7 +51,11 @@ class DiffQAgent(object):
         pass
 
     def apply_noise(self, input, noise_ratio):
-        n = np.random.normal(np.zeros(input.shape, dtype=np.float32), scale=np.sqrt(np.square(input)) * noise_ratio)
+        b = self.env.action_space.high
+        a = self.env.action_space.low
+
+        # n = np.random.normal(np.zeros(input.shape, dtype=np.float32), scale=np.sqrt(np.square(input)) * noise_ratio)
+        n = np.random.normal(np.zeros(input.shape, dtype=np.float32), scale=b * noise_ratio)
         n = n.astype('float32')
         return input + n
 

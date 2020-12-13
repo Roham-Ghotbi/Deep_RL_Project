@@ -32,26 +32,30 @@ class DiffQCritic(BaseCritic):
                 self.ob_dim + self.ob_dim + self.ac_dim + self.ac_dim,
                 1,
                 n_layers=self.n_layers,
-                size=self.size
+                size=self.size,
+                activation=hparams['activation_func']
             )
             self.q_net_target = ptu.build_mlp(
                 self.ob_dim + self.ob_dim + self.ac_dim + self.ac_dim,
                 1,
                 n_layers=self.n_layers,
-                size=self.size
+                size=self.size,
+                activation=hparams['activation_func']
             )
         else:
             self.q_net = ptu.build_mlp(
                 self.ob_dim + self.ob_dim,
                 self.ac_dim * self.ac_dim,
                 n_layers=self.n_layers,
-                size=self.size
+                size=self.size,
+                activation=hparams['activation_func']
             )
             self.q_net_target = ptu.build_mlp(
                 self.ob_dim + self.ob_dim,
                 self.ac_dim * self.ac_dim,
                 n_layers=self.n_layers,
-                size=self.size
+                size=self.size,
+                activation=hparams['activation_func']
             )
         self.loss = nn.MSELoss()
         self.optimizer = optim.Adam(
@@ -112,12 +116,12 @@ class DiffQCritic(BaseCritic):
                 # input_tp1 = torch.cat((next_ob_no, ac_tp1_b), dim=-1)
                 input_tp1 = next_ob_no
                 temp = self.q_net(input_tp1.to(ptu.device)).reshape((-1,self.ac_dim,self.ac_dim))
-                temp, ind1 = temp.max(dim=2)
-                _, ind2 = temp.min(dim=1)
+                temp, ind1 = temp.min(dim=2)
+                _, ind2 = temp.max(dim=1)
                 ind1 = torch.gather(ind1, 1, ind2.unsqueeze(1))
                 qa_tp1_values = self.q_net_target(input_tp1.to(ptu.device)).reshape((-1,self.ac_dim,self.ac_dim))
-                diff_Qs_tp1 = torch.gather(qa_tp1_values, 2, ind2.unsqueeze(1).unsqueeze(1).repeat(1,self.ac_dim,1)).squeeze(-1)
-                diff_Qs_tp1 = torch.gather(diff_Qs_tp1, 1, ind1).squeeze(1)
+                diff_Qs_tp1 = torch.gather(qa_tp1_values, 2, ind1.unsqueeze(1).repeat(1,self.ac_dim,1)).squeeze(-1)
+                diff_Qs_tp1 = torch.gather(diff_Qs_tp1, 1, ind2.unsqueeze(1)).squeeze(1)
             else:
                 input_tp1 = torch.cat((next_ob_no, ac_tp1), dim=-1)
                 diff_Qs_tp1 = self.q_net_target(input_tp1.to(ptu.device))
@@ -126,8 +130,8 @@ class DiffQCritic(BaseCritic):
                 # input_tp1 = torch.cat((next_ob_no), dim=-1)
                 input_tp1 = next_ob_no
                 diff_Qs_tp1 = self.q_net(input_tp1.to(ptu.device)).reshape((-1,self.ac_dim,self.ac_dim))
-                diff_Qs_tp1,_ = diff_Qs_tp1.max(dim=2)
-                diff_Qs_tp1,_ = diff_Qs_tp1.min(dim=1)
+                diff_Qs_tp1,_ = diff_Qs_tp1.min(dim=2)
+                diff_Qs_tp1,_ = diff_Qs_tp1.max(dim=1)
             else:
                 input_tp1 = torch.cat((next_ob_no, ac_tp1), dim = -1)
                 diff_Qs_tp1 = self.q_net(input_tp1.to(ptu.device))
@@ -141,7 +145,7 @@ class DiffQCritic(BaseCritic):
 
         self.optimizer.zero_grad()
         loss.backward()
-        # utils.clip_grad_value_(self.q_net.parameters(), self.grad_norm_clipping)
+        utils.clip_grad_value_(self.q_net.parameters(), self.grad_norm_clipping)
         self.optimizer.step()
 
 

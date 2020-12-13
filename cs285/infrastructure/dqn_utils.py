@@ -38,7 +38,7 @@ def register_custom_envs():
             id='hopper-v0',
             entry_point='cs285.envs.box2d.hopper:HopperEnv',
             max_episode_steps=1000,
-            reward_threshold=500,
+            reward_threshold=1000,
         )
     # if 'swimmer' not in registry.env_specs:
     #     register(
@@ -66,7 +66,8 @@ def get_env_kwargs(env_name):
             'grad_norm_clipping': 10,
             'lander': True,
             'num_timesteps': 500000,
-            'env_wrappers': empty_wrapper
+            'env_wrappers': empty_wrapper,
+            'num_exploration_steps': 75000
         }
         kwargs['exploration_schedule'] = exploration_schedule(kwargs['num_timesteps'])
     elif env_name == 'HalfCheetah-v2':
@@ -74,14 +75,15 @@ def get_env_kwargs(env_name):
             return env
         kwargs = {
             'replay_buffer_size': 50000,
-            'learning_starts': 5000,
+            'learning_starts': 10000,
             'learning_freq': 2,
             'frame_history_len': 1,
-            'target_update_freq': 300,
-            'grad_norm_clipping': 10,
+            'target_update_freq': 3000,
+            'grad_norm_clipping': 100,
             'lander': True,
             'num_timesteps': 500000,
-            'env_wrappers': empty_wrapper
+            'env_wrappers': empty_wrapper,
+            'num_exploration_steps': 75000
         }
         kwargs['exploration_schedule'] = exploration_schedule(kwargs['num_timesteps'])
     else:
@@ -90,14 +92,15 @@ def get_env_kwargs(env_name):
 
         kwargs = {
             'replay_buffer_size': 50000,
-            'learning_starts': 5000,
+            'learning_starts': 10000,
             'learning_freq': 2,
             'frame_history_len': 1,
             'target_update_freq': 3000,
-            'grad_norm_clipping': 10,
+            'grad_norm_clipping': 100,
             'lander': True,
-            'num_timesteps': 200000,
-            'env_wrappers': empty_wrapper
+            'num_timesteps': 300000,
+            'env_wrappers': empty_wrapper,
+            'num_exploration_steps': 75000
         }
         kwargs['exploration_schedule'] = exploration_schedule(kwargs['num_timesteps'])
 
@@ -107,7 +110,7 @@ def exploration_schedule(num_timesteps):
     return PiecewiseSchedule(
         [
             (0, 1),
-            (num_timesteps * 0.2 *0 + 40000, 0.02),
+            (num_timesteps * 0.2 *0 + 75000, 0.02),
         ], outside_value=0.02
     )
 
@@ -482,6 +485,7 @@ class MemoryOptimizedReplayBuffer(object):
         """
         assert self.num_in_buffer > 0
         return self._encode_observation((self.next_idx - 1) % self.size)
+
 
     def _encode_observation(self, idx):
         end_idx   = idx + 1 # make noninclusive

@@ -25,6 +25,7 @@ def build_mlp(
         size: int,
         activation: Activation = 'relu',
         output_activation: Activation = 'identity',
+        init_method=None,
 ):
     """
         Builds a feedforward neural network
@@ -47,11 +48,20 @@ def build_mlp(
     layers = []
     in_size = input_size
     for _ in range(n_layers):
-        layers.append(nn.Linear(in_size, size))
+        curr_layer = nn.Linear(in_size, size)
+        if init_method is not None:
+            curr_layer.apply(init_method)
+        layers.append(curr_layer)
         layers.append(activation)
         in_size = size
-    layers.append(nn.Linear(in_size, output_size))
+
+    last_layer = nn.Linear(in_size, output_size)
+    if init_method is not None:
+        last_layer.apply(init_method)
+
+    layers.append(last_layer)
     layers.append(output_activation)
+
     return nn.Sequential(*layers)
 
 
